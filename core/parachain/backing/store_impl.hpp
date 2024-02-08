@@ -64,7 +64,7 @@ namespace kagome::parachain {
 
     std::shared_ptr<crypto::Hasher> hasher_;
 
-//    std::unordered_map<BlockHash, std::unordered_set<BlockHash>> candidates_;
+    std::unordered_map<BlockHash, std::unordered_set<BlockHash>> candidates_;
     std::unordered_map<BlockHash, std::vector<BackedCandidate>>
         backed_candidates_;
 

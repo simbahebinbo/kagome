@@ -32,12 +32,12 @@ namespace kagome::parachain {
   void BackingStoreImpl::remove(const BlockHash &relay_parent) {
     backed_candidates_.erase(relay_parent);
     /// TODO(iceseer): do cleanup
-//    if (auto it = candidates_.find(relay_parent); it != candidates_.end()) {
-//      for (const auto &candidate : it->second) {
-//        candidate_votes_.erase(candidate);
-//      }
-//      candidates_.erase(it);
-//    }
+    if (auto it = candidates_.find(relay_parent); it != candidates_.end()) {
+      for (const auto &candidate : it->second) {
+        candidate_votes_.erase(candidate);
+      }
+      candidates_.erase(it);
+    }
   }
 
   bool BackingStoreImpl::is_in_group(
@@ -139,8 +139,8 @@ namespace kagome::parachain {
       const std::unordered_map<ParachainId, std::vector<ValidatorIndex>>
           &groups,
       Statement stm, bool allow_multiple_seconded) {
-//    auto candidate_hash =
-//        candidateHash(*hasher_, stm.payload.payload.candidate_state);
+    auto candidate_hash =
+        candidateHash(*hasher_, stm.payload.payload.candidate_state);
 
     const auto &signer = stm.payload.ix;
     const auto &signature = stm.signature;
@@ -148,6 +148,7 @@ namespace kagome::parachain {
 
     auto res = visit_in_place(statement.candidate_state,
       [&](const network::CommittedCandidateReceipt &candidate) {
+        candidates_[candidate.descriptor.relay_parent].insert(candidate_hash);
         return import_candidate(groups, signer, candidate, signature, allow_multiple_seconded);
       },
       [&](const CandidateHash &digest) {
