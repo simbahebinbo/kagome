@@ -42,7 +42,6 @@ namespace kagome::parachain {
     virtual ~BackingStore() = default;
 
     virtual std::optional<ImportResult> put(
-      const RelayHash &relay_parent,
         const std::unordered_map<ParachainId, std::vector<ValidatorIndex>>
             &groups,
         Statement statement, bool allow_multiple_seconded) = 0;
@@ -50,13 +49,12 @@ namespace kagome::parachain {
     virtual std::vector<BackedCandidate> get(
         const BlockHash &relay_parent) const = 0;
 
-    virtual void onActivateLeaf(const RelayHash &relay_parent) = 0;
-    virtual void onDeactivateLeaf(const RelayHash &relay_parent) = 0;
+    virtual void remove(const BlockHash &relay_parent) = 0;
 
     virtual void add(const BlockHash &relay_parent,
                      BackedCandidate &&candidate) = 0;
 
     virtual std::optional<std::reference_wrapper<const StatementInfo>>
-    getCadidateInfo(const RelayHash &relay_parent, const network::CandidateHash &candidate_hash) const = 0;
+    get_validity_votes(const network::CandidateHash &candidate_hash) const = 0;
   };
 }  // namespace kagome::parachain

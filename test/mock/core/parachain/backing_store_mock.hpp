@@ -34,8 +34,8 @@ namespace kagome::parachain {
                 (override));
 
     MOCK_METHOD(std::optional<std::reference_wrapper<const StatementInfo>>,
-                getCadidateInfo,
-                (const primitives::BlockHash &, const network::CandidateHash &),
+                get_validity_votes,
+                (const network::CandidateHash &),
                 (const, override));
   };
 
