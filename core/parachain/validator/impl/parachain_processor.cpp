@@ -1215,7 +1215,7 @@ namespace kagome::parachain {
                                     mode->max_candidate_depth);
 
     SL_VERBOSE(logger_,
-               "Inited new backing task v3.(assigned_para={}, "
+               "--++---> Inited new backing task v3.(assigned_para={}, "
                "assigned_core={}, our index={}, relay "
                "parent={})",
                assigned_para,
@@ -1919,7 +1919,7 @@ namespace kagome::parachain {
       const network::vstaging::BackedCandidateAcknowledgement
           &acknowledgement) {
     SL_TRACE(logger_,
-             "`BackedCandidateAcknowledgement`. (candidate_hash={})",
+             "--++---> `BackedCandidateAcknowledgement`. (candidate_hash={})",
              acknowledgement.candidate_hash);
     const auto &candidate_hash = acknowledgement.candidate_hash;
     SL_TRACE(logger_,
@@ -1994,7 +1994,7 @@ namespace kagome::parachain {
       const libp2p::peer::PeerId &peer_id,
       const network::vstaging::BackedCandidateManifest &manifest) {
     SL_TRACE(logger_,
-             "`BackedCandidateManifest`. (relay_parent={}, "
+             "--++---> `BackedCandidateManifest`. (relay_parent={}, "
              "candidate_hash={}, para_id={}, parent_head_data_hash={})",
              manifest.relay_parent,
              manifest.candidate_hash,
@@ -2150,7 +2150,7 @@ namespace kagome::parachain {
       const libp2p::peer::PeerId &peer_id,
       const network::vstaging::StatementDistributionMessageStatement &stm) {
     SL_TRACE(logger_,
-             "`StatementDistributionMessageStatement`. (relay_parent={}, "
+             "--++---> `StatementDistributionMessageStatement`. (relay_parent={}, "
              "candidate_hash={})",
              stm.relay_parent,
              candidateHash(getPayload(stm.compact)));

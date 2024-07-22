@@ -32,6 +32,7 @@ namespace kagome::parachain {
     void recover(const HashedCandidateReceipt &hashed_receipt,
                  SessionIndex session_index,
                  std::optional<GroupIndex> backing_group,
+                 std::optional<CoreIndex> maybe_core_index,
                  Cb cb) override;
 
     void remove(const CandidateHash &candidate) override;

@@ -37,6 +37,7 @@ namespace kagome::parachain {
   void RecoveryImpl::recover(const HashedCandidateReceipt &hashed_receipt,
                              SessionIndex session_index,
                              std::optional<GroupIndex> backing_group,
+                             std::optional<CoreIndex> maybe_core_index,
                              Cb cb) {
     std::unique_lock lock{mutex_};
     const auto &receipt = hashed_receipt.get();
@@ -64,13 +65,29 @@ namespace kagome::parachain {
       cb(_session.error());
       return;
     }
-    auto &session = _session.value();
-    auto _min = minChunks(session->validators.size());
+    auto &session_info = _session.value();
+
+    auto _node_features = parachain_host_->node_features(block.hash, session_index);
+    if (!_node_features) {
+      lock.unlock();
+      cb(_session.error());
+      return;
+    }
+    auto &node_features = _node_features.value();
+
+    const auto n_validators = session_info.validators.size();
+    const auto systematic_threshold =  systematic_threshold(n_validators);
+    let mut backer_group = None;
+
+    auto _min = minChunks(n_validators);
     if (not _min) {
       lock.unlock();
       cb(_min.error());
       return;
     }
+
+
+
     Active active;
     active.erasure_encoding_root = receipt.descriptor.erasure_encoding_root;
     active.chunks_required = _min.value();

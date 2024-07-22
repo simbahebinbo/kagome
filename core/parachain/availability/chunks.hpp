@@ -28,6 +28,11 @@ namespace kagome::parachain {
     return min;
   }
 
+  inline outcome::result<size_t> systematic_threshold(size_t n_validators) {
+    EC_CPP_TRY(encoder, ec_cpp::create(n_validators));
+    return encoder.k();
+  }
+
   inline outcome::result<std::vector<network::ErasureChunk>> toChunks(
       size_t validators, const runtime::AvailableData &data) {
     OUTCOME_TRY(message, scale::encode(data));
