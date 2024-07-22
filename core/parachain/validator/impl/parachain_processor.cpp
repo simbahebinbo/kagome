@@ -549,8 +549,8 @@ namespace kagome::parachain {
     TRY_GET_OR_RET(parachain_state, tryGetStateByRelayParent(relay_parent));
 
     network::CollationVersion version = network::CollationVersion::VStaging;
-    if (peer_state->get().version) {
-      version = *peer_state->get().version;
+    if (peer_state->get().collation_version) {
+      version = *peer_state->get().collation_version;
     }
 
     if (auto auth_id = query_audi_->get(peer_id)) {
@@ -2426,8 +2426,8 @@ namespace kagome::parachain {
       }
 
       network::CollationVersion version = network::CollationVersion::VStaging;
-      if (peer_state->get().version) {
-        version = *peer_state->get().version;
+      if (peer_state->get().collation_version) {
+        version = *peer_state->get().collation_version;
       }
 
       switch (kind) {
@@ -3234,6 +3234,7 @@ namespace kagome::parachain {
             av_store_->getChunk(request.candidate, request.chunk_index)) {
       return network::Chunk{
           .data = chunk->chunk,
+          .chunk_index = request.chunk_index,
           .proof = chunk->proof,
       };
     }
@@ -4477,7 +4478,7 @@ namespace kagome::parachain {
       return res;
     }();
 
-    peer_state->get().version = version;
+    peer_state->get().collation_version = version;
     if (tryOpenOutgoingCollatingStream(
             peer_id, [wptr{weak_from_this()}, peer_id, version](auto &&stream) {
               TRY_GET_OR_RET(self, wptr.lock());
@@ -4512,7 +4513,7 @@ namespace kagome::parachain {
       return res;
     }();
 
-    peer_state->get().version = version;
+    peer_state->get().collation_version = version;
     if (tryOpenOutgoingValidationStream(
             peer_id,
             version,
@@ -4669,8 +4670,8 @@ namespace kagome::parachain {
 
     if (auto peer_data = pm_->getPeerState(peer_id)) {
       network::CollationVersion version = network::CollationVersion::VStaging;
-      if (peer_data->get().version) {
-        version = *peer_data->get().version;
+      if (peer_data->get().collation_version) {
+        version = *peer_data->get().collation_version;
       }
       notify_collation_seconded(peer_id, version, relay_parent, statement);
     }
@@ -5673,8 +5674,8 @@ namespace kagome::parachain {
                    [](const auto &v) { return std::cref(v.candidate_hash); });
 
     network::CollationVersion version = network::CollationVersion::VStaging;
-    if (peer_state->get().version) {
-      version = *peer_state->get().version;
+    if (peer_state->get().collation_version) {
+      version = *peer_state->get().collation_version;
     }
 
     if (peer_state->get().hasAdvertised(pc.relay_parent, candidate_hash)) {
