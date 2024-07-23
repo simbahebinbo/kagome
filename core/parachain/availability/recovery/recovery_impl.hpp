@@ -45,6 +45,7 @@ namespace kagome::parachain {
                  SessionIndex session_index,
                  std::optional<GroupIndex> backing_group,
                  std::optional<CoreIndex> maybe_core_index,
+                 const RecoveryStrategyKind &recovery_strategy_kind,
                  Cb cb) override;
 
     void remove(const CandidateHash &candidate) override;

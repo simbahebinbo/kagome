@@ -97,6 +97,7 @@ namespace kagome::parachain {
                              SessionIndex session_index,
                              std::optional<GroupIndex> backing_group,
                              std::optional<CoreIndex> maybe_core_index,
+                             const RecoveryStrategyKind &recovery_strategy_kind,
                              Cb cb) {
     std::unique_lock lock{mutex_};
     const auto &receipt = hashed_receipt.get();
@@ -129,14 +130,24 @@ namespace kagome::parachain {
     auto _node_features = parachain_host_->node_features(block.hash, session_index);
     if (!_node_features) {
       lock.unlock();
-      cb(_session.error());
+      cb(_node_features.error());
       return;
     }
     auto &node_features = _node_features.value();
 
     const auto n_validators = session_info.validators.size();
-    const auto systematic_threshold =  systematic_threshold(n_validators);
-    let mut backer_group = None;
+    const auto _systematic_threshold =  systematic_threshold(n_validators);
+    if (!_node_features) {
+      lock.unlock();
+      cb(_systematic_threshold.error());
+      return;
+    }
+    const auto &systematic_threshold = _systematic_threshold.value();
+    std::optional<ValidatorIndex> backer_group;
+
+
+
+
 
     auto _min = minChunks(n_validators);
     if (not _min) {
