@@ -8,9 +8,38 @@
 #include "blockchain/genesis_block_hash.hpp"
 #include "network/adapters/protobuf_state_request.hpp"
 #include "network/adapters/protobuf_state_response.hpp"
+#include "network/adapters/protobuf_state_response_compressed.hpp"
 #include "network/common.hpp"
 #include "network/helpers/protobuf_message_read_writer.hpp"
 #include "network/impl/protocols/protocol_error.hpp"
+
+static std::vector<uint8_t> decompressZstd(const std::vector<uint8_t>& compressed_data) {
+    // Determine the decompressed size
+    unsigned long long const decompressed_size = ZSTD_getFrameContentSize(compressed_data.data(), compressed_data.size());
+    if (decompressed_size == ZSTD_CONTENTSIZE_ERROR) {
+        throw std::runtime_error("Invalid compressed data.");
+    }
+    if (decompressed_size == ZSTD_CONTENTSIZE_UNKNOWN) {
+        throw std::runtime_error("Unknown decompressed size.");
+    }
+
+    // Prepare a buffer to hold the decompressed data
+    std::vector<uint8_t> decompressed_data(decompressed_size);
+
+    // Decompress the data
+    size_t const result = ZSTD_decompress(
+        decompressed_data.data(),
+        decompressed_data.size(),
+        compressed_data.data(),
+        compressed_data.size()
+    );
+
+    if (ZSTD_isError(result)) {
+        throw std::runtime_error(ZSTD_getErrorName(result));
+    }
+
+    return decompressed_data;
+}
 
 namespace kagome::network {
 
@@ -293,7 +322,7 @@ namespace kagome::network {
              protocolName(),
              stream->remotePeerId().value());
 
-    read_writer->read<StateResponse>([stream,
+    read_writer->read<StateResponseCompressed>([stream,
                                       wp{weak_from_this()},
                                       response_handler =
                                           std::move(response_handler)](
@@ -316,7 +345,30 @@ namespace kagome::network {
         response_handler(state_response_res.as_failure());
         return;
       }
-      auto &state_response = state_response_res.value();
+      auto state_response_compressed = decompressZstd(state_response_res.value().data);
+
+      ::api::v1::StateResponse msg;
+      if (!msg.ParseFromArray(state_response_compressed.begin().base(), state_response_compressed.size())) {
+        SL_ERROR(self->base_.logger(), "Failed to parse response");
+      }
+
+      StateResponse state_response;
+      for (const auto &kvEntry : msg.entries()) {
+        KeyValueStateEntry kv;
+        auto root = kvEntry.state_root();
+        if (!root.empty()) {
+          kv.state_root = storage::trie::RootHash::fromString(root).value();
+        }
+        for (const auto &sEntry : kvEntry.entries()) {
+          kv.entries.emplace_back(
+              StateEntry{common::Buffer().put(sEntry.key()),
+                         common::Buffer().put(sEntry.value())});
+        }
+        kv.complete = kvEntry.complete();
+
+        state_response.entries.emplace_back(std::move(kv));
+      }
+      state_response.proof = common::Buffer().put(msg.proof());
 
       SL_DEBUG(self->base_.logger(),
                "Successful response read from outgoing {} stream with {}",
