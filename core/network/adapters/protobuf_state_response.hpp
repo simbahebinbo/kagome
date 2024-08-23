@@ -12,6 +12,36 @@
 #include "network/types/state_response.hpp"
 #include "scale/scale.hpp"
 
+#include <zstd.h>
+#include <zstd_errors.h>
+
+static std::vector<uint8_t> decompressZstd(const std::vector<uint8_t>& compressed_data) {
+    // Determine the decompressed size
+    unsigned long long const decompressed_size = ZSTD_getFrameContentSize(compressed_data.data(), compressed_data.size());
+    if (decompressed_size == ZSTD_CONTENTSIZE_ERROR) {
+        throw std::runtime_error("Invalid compressed data.");
+    }
+    if (decompressed_size == ZSTD_CONTENTSIZE_UNKNOWN) {
+        throw std::runtime_error("Unknown decompressed size.");
+    }
+
+    // Prepare a buffer to hold the decompressed data
+    std::vector<uint8_t> decompressed_data(decompressed_size);
+
+    // Decompress the data
+    size_t const result = ZSTD_decompress(
+        decompressed_data.data(),
+        decompressed_data.size(),
+        compressed_data.data(),
+        compressed_data.size()
+    );
+
+    if (ZSTD_isError(result)) {
+        throw std::runtime_error(ZSTD_getErrorName(result));
+    }
+
+    return decompressed_data;
+}
 namespace kagome::network {
 
   template <>
@@ -46,11 +76,12 @@ namespace kagome::network {
         StateResponse &out,
         const std::vector<uint8_t> &src,
         std::vector<uint8_t>::const_iterator from) {
-      const auto remains = src.size() - std::distance(src.begin(), from);
-      assert(remains >= size(out));
+      // const auto remains = src.size() - std::distance(src.begin(), from);
+      // assert(remains >= size(out));
+      auto state_response_decompressed = decompressZstd(src);
 
       ::api::v1::StateResponse msg;
-      if (!msg.ParseFromArray(from.base(), remains)) {
+      if (!msg.ParseFromArray(state_response_decompressed.data(), state_response_decompressed.size())) {
         return AdaptersError::PARSE_FAILED;
       }
 
