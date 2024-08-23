@@ -15,33 +15,35 @@
 #include <zstd.h>
 #include <zstd_errors.h>
 
-static std::vector<uint8_t> decompressZstd(const std::vector<uint8_t>& compressed_data) {
-    // Determine the decompressed size
-    unsigned long long const decompressed_size = ZSTD_getFrameContentSize(compressed_data.data(), compressed_data.size());
-    if (decompressed_size == ZSTD_CONTENTSIZE_ERROR) {
-        throw std::runtime_error("Invalid compressed data.");
-    }
-    if (decompressed_size == ZSTD_CONTENTSIZE_UNKNOWN) {
-        throw std::runtime_error("Unknown decompressed size.");
-    }
-
-    // Prepare a buffer to hold the decompressed data
-    std::vector<uint8_t> decompressed_data(decompressed_size);
-
-    // Decompress the data
-    size_t const result = ZSTD_decompress(
-        decompressed_data.data(),
-        decompressed_data.size(),
-        compressed_data.data(),
-        compressed_data.size()
+std::vector<uint8_t> decompressZstd(const std::vector<uint8_t>& compressedData) {
+    std::unique_ptr<ZSTD_DCtx, void(*)(ZSTD_DCtx*)> dctx(
+        ZSTD_createDCtx(),
+        [](ZSTD_DCtx* d) { ZSTD_freeDCtx(d); }
     );
-
-    if (ZSTD_isError(result)) {
-        throw std::runtime_error(ZSTD_getErrorName(result));
+    if (dctx == nullptr) {
+        throw std::runtime_error("Failed to create ZSTD decompression context");
     }
 
-    return decompressed_data;
+    std::vector<uint8_t> decompressedData;
+    size_t bufferSize = ZSTD_DStreamOutSize();
+    std::vector<uint8_t> outBuffer(bufferSize);
+
+    ZSTD_inBuffer input = { compressedData.data(), compressedData.size(), 0 };
+    ZSTD_outBuffer output = { outBuffer.data(), outBuffer.size(), 0 };
+
+    while (input.pos < input.size) {
+        size_t ret = ZSTD_decompressStream(dctx.get(), &output, &input);
+        if (ZSTD_isError(ret)) {
+            throw std::runtime_error(ZSTD_getErrorName(ret));
+        }
+
+        decompressedData.insert(decompressedData.end(), outBuffer.data(), outBuffer.data() + output.pos);
+        output.pos = 0;
+    }
+
+    return decompressedData;
 }
+
 namespace kagome::network {
 
   template <>
@@ -78,12 +80,16 @@ namespace kagome::network {
         std::vector<uint8_t>::const_iterator from) {
       // const auto remains = src.size() - std::distance(src.begin(), from);
       // assert(remains >= size(out));
+
       auto state_response_decompressed = decompressZstd(src);
 
       ::api::v1::StateResponse msg;
       if (!msg.ParseFromArray(state_response_decompressed.data(), state_response_decompressed.size())) {
         return AdaptersError::PARSE_FAILED;
       }
+      // if (!msg.ParseFromArray(from.base(), remains)) {
+      //   return AdaptersError::PARSE_FAILED;
+      // }
 
       for (const auto &kvEntry : msg.entries()) {
         KeyValueStateEntry kv;
