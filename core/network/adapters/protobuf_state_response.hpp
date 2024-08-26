@@ -12,38 +12,6 @@
 #include "network/types/state_response.hpp"
 #include "scale/scale.hpp"
 
-#include <zstd.h>
-#include <zstd_errors.h>
-
-std::vector<uint8_t> decompressZstd(const std::vector<uint8_t>& compressedData) {
-    std::unique_ptr<ZSTD_DCtx, void(*)(ZSTD_DCtx*)> dctx(
-        ZSTD_createDCtx(),
-        [](ZSTD_DCtx* d) { ZSTD_freeDCtx(d); }
-    );
-    if (dctx == nullptr) {
-        throw std::runtime_error("Failed to create ZSTD decompression context");
-    }
-
-    std::vector<uint8_t> decompressedData;
-    size_t bufferSize = ZSTD_DStreamOutSize();
-    std::vector<uint8_t> outBuffer(bufferSize);
-
-    ZSTD_inBuffer input = { compressedData.data(), compressedData.size(), 0 };
-    ZSTD_outBuffer output = { outBuffer.data(), outBuffer.size(), 0 };
-
-    while (input.pos < input.size) {
-        size_t ret = ZSTD_decompressStream(dctx.get(), &output, &input);
-        if (ZSTD_isError(ret)) {
-            throw std::runtime_error(ZSTD_getErrorName(ret));
-        }
-
-        decompressedData.insert(decompressedData.end(), outBuffer.data(), outBuffer.data() + output.pos);
-        output.pos = 0;
-    }
-
-    return decompressedData;
-}
-
 namespace kagome::network {
 
   template <>
@@ -78,18 +46,13 @@ namespace kagome::network {
         StateResponse &out,
         const std::vector<uint8_t> &src,
         std::vector<uint8_t>::const_iterator from) {
-      // const auto remains = src.size() - std::distance(src.begin(), from);
-      // assert(remains >= size(out));
-
-      auto state_response_decompressed = decompressZstd(src);
+      const auto remains = src.size() - std::distance(src.begin(), from);
+      assert(remains >= size(out));
 
       ::api::v1::StateResponse msg;
-      if (!msg.ParseFromArray(state_response_decompressed.data(), state_response_decompressed.size())) {
+      if (!msg.ParseFromArray(from.base(), remains)) {
         return AdaptersError::PARSE_FAILED;
       }
-      // if (!msg.ParseFromArray(from.base(), remains)) {
-      //   return AdaptersError::PARSE_FAILED;
-      // }
 
       for (const auto &kvEntry : msg.entries()) {
         KeyValueStateEntry kv;

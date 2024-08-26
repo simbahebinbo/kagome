@@ -8,38 +8,11 @@
 #include "blockchain/genesis_block_hash.hpp"
 #include "network/adapters/protobuf_state_request.hpp"
 #include "network/adapters/protobuf_state_response.hpp"
-// #include "network/adapters/protobuf_state_response_compressed.hpp"
 #include "network/common.hpp"
 #include "network/helpers/protobuf_message_read_writer.hpp"
 #include "network/impl/protocols/protocol_error.hpp"
 
-// static std::vector<uint8_t> decompressZstd(const std::vector<uint8_t>& compressed_data) {
-//     // Determine the decompressed size
-//     unsigned long long const decompressed_size = ZSTD_getFrameContentSize(compressed_data.data(), compressed_data.size());
-//     if (decompressed_size == ZSTD_CONTENTSIZE_ERROR) {
-//         throw std::runtime_error("Invalid compressed data.");
-//     }
-//     if (decompressed_size == ZSTD_CONTENTSIZE_UNKNOWN) {
-//         throw std::runtime_error("Unknown decompressed size.");
-//     }
-
-//     // Prepare a buffer to hold the decompressed data
-//     std::vector<uint8_t> decompressed_data(decompressed_size);
-
-//     // Decompress the data
-//     size_t const result = ZSTD_decompress(
-//         decompressed_data.data(),
-//         decompressed_data.size(),
-//         compressed_data.data(),
-//         compressed_data.size()
-//     );
-
-//     if (ZSTD_isError(result)) {
-//         throw std::runtime_error(ZSTD_getErrorName(result));
-//     }
-
-//     return decompressed_data;
-// }
+#include <network/helpers/compressor/zstd_stream_compressor.h>
 
 namespace kagome::network {
 
@@ -243,6 +216,7 @@ namespace kagome::network {
                                         StateResponse state_response) {
     auto read_writer = std::make_shared<ProtobufMessageReadWriter>(stream);
 
+    std::shared_ptr<ICompressor> compressor = std::make_shared<ZstdStreamCompressor>();
     read_writer->write(
         state_response,
         [stream = std::move(stream),
@@ -265,7 +239,7 @@ namespace kagome::network {
           }
 
           stream->close([](auto &&...) {});
-        });
+        }, compressor);
   }
 
   void StateProtocolImpl::writeRequest(
@@ -322,6 +296,8 @@ namespace kagome::network {
              protocolName(),
              stream->remotePeerId().value());
 
+    std::shared_ptr<ICompressor> decompressor = std::make_shared<ZstdStreamCompressor>();
+
     read_writer->read<StateResponse>([stream,
                                       wp{weak_from_this()},
                                       response_handler =
@@ -354,7 +330,7 @@ namespace kagome::network {
 
       stream->reset();
       response_handler(std::move(state_response));
-    });
+    }, decompressor);
   }
 
 }  // namespace kagome::network
