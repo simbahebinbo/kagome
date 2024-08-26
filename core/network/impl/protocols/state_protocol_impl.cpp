@@ -11,9 +11,6 @@
 #include "network/common.hpp"
 #include "network/helpers/protobuf_message_read_writer.hpp"
 #include "network/impl/protocols/protocol_error.hpp"
-
-#include <network/helpers/compressor/zstd_stream_compressor.h>
-
 namespace kagome::network {
 
   StateProtocolImpl::StateProtocolImpl(
@@ -25,7 +22,9 @@ namespace kagome::network {
               host,
               make_protocols(kStateProtocol, genesis_hash, chain_spec),
               log::createLogger(kStateProtocolName, "state_protocol")),
-        state_observer_(std::move(state_observer)) {
+        state_observer_(std::move(state_observer))
+        ,state_response_compressor_(std::make_shared<ZstdStreamCompressor>())
+  {
     BOOST_ASSERT(state_observer_ != nullptr);
   }
 
@@ -216,7 +215,6 @@ namespace kagome::network {
                                         StateResponse state_response) {
     auto read_writer = std::make_shared<ProtobufMessageReadWriter>(stream);
 
-    std::shared_ptr<ICompressor> compressor = std::make_shared<ZstdStreamCompressor>();
     read_writer->write(
         state_response,
         [stream = std::move(stream),
@@ -239,7 +237,7 @@ namespace kagome::network {
           }
 
           stream->close([](auto &&...) {});
-        }, compressor);
+        }, state_response_compressor_);
   }
 
   void StateProtocolImpl::writeRequest(
@@ -296,8 +294,6 @@ namespace kagome::network {
              protocolName(),
              stream->remotePeerId().value());
 
-    std::shared_ptr<ICompressor> decompressor = std::make_shared<ZstdStreamCompressor>();
-
     read_writer->read<StateResponse>([stream,
                                       wp{weak_from_this()},
                                       response_handler =
@@ -330,7 +326,7 @@ namespace kagome::network {
 
       stream->reset();
       response_handler(std::move(state_response));
-    }, decompressor);
+    }, state_response_compressor_);
   }
 
 }  // namespace kagome::network

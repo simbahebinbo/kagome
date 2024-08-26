@@ -19,6 +19,8 @@
 #include "network/state_protocol_observer.hpp"
 #include "utils/non_copyable.hpp"
 
+#include <network/helpers/compressor/zstd_stream_compressor.h>
+
 namespace kagome::blockchain {
   class GenesisBlockHash;
 }
@@ -75,6 +77,7 @@ namespace kagome::network {
     inline static const auto kStateProtocolName = "StateProtocol"s;
     ProtocolBaseImpl base_;
     std::shared_ptr<StateProtocolObserver> state_observer_;
+    std::shared_ptr<ZstdStreamCompressor> state_response_compressor_;
   };
 
 }  // namespace kagome::network

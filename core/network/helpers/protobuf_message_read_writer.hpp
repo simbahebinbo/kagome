@@ -53,7 +53,11 @@ namespace kagome::network {
 
             if (decompressor) {
               std::span<uint8_t> compressed{read_res.value()->begin(), read_res.value()->end()};
-              *read_res.value() = decompressor->decompress(compressed);
+              auto compressionRes = decompressor->decompress(compressed);
+              if (!compressionRes) {
+                return cb(outcome::failure(compressionRes.error()));
+              }
+              *read_res.value() = std::move(compressionRes.value());
             }
             using ProtobufRW =
                 MessageReadWriter<ProtobufMessageAdapter<MsgType>, NoSink>;
@@ -100,7 +104,11 @@ namespace kagome::network {
                                 cb(outcome::success());
                             });
       } else {
-        std::vector<uint8_t> compressedData = compressor->compress(data);
+        auto compressionRes = compressor->compress(data);
+        if (!compressionRes) {
+          return cb(outcome::failure(compressionRes.error()));
+        }
+        auto compressedData = std::move(compressionRes.value());
         std::span<uint8_t> compressedDataSpan(compressedData.data(), compressedData.size());
         read_writer_->write(compressedDataSpan,
                             [self{shared_from_this()},
