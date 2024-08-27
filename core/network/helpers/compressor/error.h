@@ -6,9 +6,15 @@
 
 #pragma once
 
-#include "outcome/custom.hpp"
+// #include "outcome/custom.hpp"
+#include <qtils/enum_error_code.hpp>
+
+
 
 namespace kagome::network {
+
+enum class ZstdCompressionError {
+
   struct CompressionError {
     [[nodiscard]] const std::string &message() const {
       return msg;
